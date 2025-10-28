@@ -130,25 +130,28 @@ public class CountryRefreshService {
 
     private List<Map<String,Object>> fetchCountries() {
         try {
+            System.out.println("🌍 Fetching countries from: " + countriesUrl);
             ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
+            System.out.println("✅ Countries API status: " + resp.getStatusCode());
             if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
-                throw new ExternalApiException("Could not fetch data from Countries API");
+                throw new ExternalApiException("Countries API returned no data");
             }
-            // Each element is a Map
             return (List<Map<String,Object>>) resp.getBody();
         } catch (Exception e) {
-            throw new ExternalApiException("Could not fetch data from Countries API");
+            e.printStackTrace();
+            throw new ExternalApiException("Could not fetch data from Countries API: " + e.getMessage());
         }
     }
 
     private Map<String, Double> fetchRates() {
         try {
+            System.out.println("💱 Fetching exchange rates from: " + ratesUrl);
             ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
+            System.out.println("✅ Rates API status: " + resp.getStatusCode());
             if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
-                throw new ExternalApiException("Could not fetch data from Exchange Rates API");
+                throw new ExternalApiException("Rates API returned no data");
             }
             Map body = resp.getBody();
-            // open.er-api returns "rates" object
             Object ratesObj = body.get("rates");
             if (!(ratesObj instanceof Map)) throw new ExternalApiException("Rates object missing");
             Map<String, Object> ratesMap = (Map<String, Object>) ratesObj;
@@ -156,7 +159,44 @@ public class CountryRefreshService {
                     .stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
         } catch (Exception e) {
-            throw new ExternalApiException("Could not fetch data from Exchange Rates API");
+            e.printStackTrace();
+            throw new ExternalApiException("Could not fetch data from Exchange Rates API: " + e.getMessage());
         }
     }
+
+
+//    private List<Map<String,Object>> fetchCountries() {
+//        try {
+//            ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Could not fetch data from Countries API");
+//            }
+//            // Each element is a Map
+//            return (List<Map<String,Object>>) resp.getBody();
+//        } catch (Exception e) {
+//            throw new ExternalApiException("Could not fetch data from Countries API");
+//        }
+//
+//    }
+//
+//
+//
+//    private Map<String, Double> fetchRates() {
+//        try {
+//            ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Could not fetch data from Exchange Rates API");
+//            }
+//            Map body = resp.getBody();
+//            // open.er-api returns "rates" object
+//            Object ratesObj = body.get("rates");
+//            if (!(ratesObj instanceof Map)) throw new ExternalApiException("Rates object missing");
+//            Map<String, Object> ratesMap = (Map<String, Object>) ratesObj;
+//            return ratesMap.entrySet()
+//                    .stream()
+//                    .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
+//        } catch (Exception e) {
+//            throw new ExternalApiException("Could not fetch data from Exchange Rates API");
+//        }
+//    }
 }

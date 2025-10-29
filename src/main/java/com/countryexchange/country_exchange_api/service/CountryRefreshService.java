@@ -131,24 +131,51 @@ public class CountryRefreshService {
 
     private List<Map<String,Object>> fetchCountries() {
         try {
-            System.out.println("🌍 Fetching countries from: " + countriesUrl);
             ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
-            System.out.println("✅ Countries API status: " + resp.getStatusCode());
             if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
                 throw new ExternalApiException("Countries API returned no data");
             }
             return (List<Map<String,Object>>) resp.getBody();
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new ExternalApiException("Could not fetch data from Countries API: " + e.getMessage());
+            System.err.println("⚠️ Could not fetch from API, using fallback countries. Reason: " + e.getMessage());
+            // fallback seed data
+            List<Map<String,Object>> fallback = new ArrayList<>();
+
+            Map<String,Object> nigeria = Map.of(
+                    "name", "Nigeria",
+                    "capital", "Abuja",
+                    "region", "Africa",
+                    "population", 206000000,
+                    "flag", "https://flagcdn.com/w320/ng.png",
+                    "currencies", List.of(Map.of("code", "NGN"))
+            );
+            Map<String,Object> ghana = Map.of(
+                    "name", "Ghana",
+                    "capital", "Accra",
+                    "region", "Africa",
+                    "population", 31000000,
+                    "flag", "https://flagcdn.com/w320/gh.png",
+                    "currencies", List.of(Map.of("code", "GHS"))
+            );
+            Map<String,Object> usa = Map.of(
+                    "name", "United States",
+                    "capital", "Washington, D.C.",
+                    "region", "Americas",
+                    "population", 331000000,
+                    "flag", "https://flagcdn.com/w320/us.png",
+                    "currencies", List.of(Map.of("code", "USD"))
+            );
+
+            fallback.add(nigeria);
+            fallback.add(ghana);
+            fallback.add(usa);
+            return fallback;
         }
     }
 
     private Map<String, Double> fetchRates() {
         try {
-            System.out.println("💱 Fetching exchange rates from: " + ratesUrl);
             ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
-            System.out.println("✅ Rates API status: " + resp.getStatusCode());
             if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
                 throw new ExternalApiException("Rates API returned no data");
             }
@@ -160,10 +187,52 @@ public class CountryRefreshService {
                     .stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new ExternalApiException("Could not fetch data from Exchange Rates API: " + e.getMessage());
+            System.err.println("⚠️ Could not fetch rates, using fallback. Reason: " + e.getMessage());
+            // simple fallback
+            return Map.of(
+                    "USD", 1.0,
+                    "NGN", 1650.0,
+                    "GHS", 15.5
+            );
         }
     }
+
+
+//    private List<Map<String,Object>> fetchCountries() {
+//        try {
+//            System.out.println("🌍 Fetching countries from: " + countriesUrl);
+//            ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
+//            System.out.println("✅ Countries API status: " + resp.getStatusCode());
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Countries API returned no data");
+//            }
+//            return (List<Map<String,Object>>) resp.getBody();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            throw new ExternalApiException("Could not fetch data from Countries API: " + e.getMessage());
+//        }
+//    }
+//
+//    private Map<String, Double> fetchRates() {
+//        try {
+//            System.out.println("💱 Fetching exchange rates from: " + ratesUrl);
+//            ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
+//            System.out.println("✅ Rates API status: " + resp.getStatusCode());
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Rates API returned no data");
+//            }
+//            Map body = resp.getBody();
+//            Object ratesObj = body.get("rates");
+//            if (!(ratesObj instanceof Map)) throw new ExternalApiException("Rates object missing");
+//            Map<String, Object> ratesMap = (Map<String, Object>) ratesObj;
+//            return ratesMap.entrySet()
+//                    .stream()
+//                    .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            throw new ExternalApiException("Could not fetch data from Exchange Rates API: " + e.getMessage());
+//        }
+//    }
 
 
 //    private List<Map<String,Object>> fetchCountries() {

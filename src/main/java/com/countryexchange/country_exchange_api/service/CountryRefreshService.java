@@ -8,7 +8,9 @@ import com.countryexchange.country_exchange_api.util.Utils;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 //import org.springframework.web.util.UriComponentsBuilder;
@@ -23,13 +25,27 @@ public class CountryRefreshService {
 
     private final CountryRepository countryRepository;
     private final ImageService imageService;
-    private final RestTemplate restTemplate = new RestTemplate();
+//    private final RestTemplate restTemplate = new RestTemplate()
+    private final RestTemplate restTemplate;
 
     @Value("${external.countries.url:https://restcountries.com/v2/all?fields=name,capital,region,population,flag,currencies}")
     private String countriesUrl;
 
     @Value("${external.rates.url:https://open.er-api.com/v6/latest/USD}")
     private String ratesUrl;
+
+    public CountryRefreshService(CountryRepository countryRepository, ImageService imageService) {
+        this.countryRepository = countryRepository;
+        this.imageService = imageService;
+        this.restTemplate = buildRestTemplate();
+    }
+
+    private RestTemplate buildRestTemplate() {
+        var factory = new HttpComponentsClientHttpRequestFactory();
+        factory.setConnectTimeout(5000); // 5 seconds
+        factory.setReadTimeout(10000);   // 10 seconds
+        return new RestTemplate(factory);
+    }
 
     // global last refresh stored separately? we will store in DB record timestamps and image file timestamp
     @Transactional
@@ -130,39 +146,78 @@ public class CountryRefreshService {
         return result;
     }
 
-    private List<Map<String,Object>> fetchCountries() {
-        try {
-            System.out.println("🌍 Fetching countries from: " + countriesUrl);
-            ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
-            System.out.println("✅ Countries API status: " + resp.getStatusCode());
-            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
-                throw new ExternalApiException("Countries API returned no data");
-            }
-            return (List<Map<String,Object>>) resp.getBody();
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new ExternalApiException("Could not fetch data from Countries API: " + e.getMessage());
-        }
+//    private List<Map<String,Object>> fetchCountries() {
+//        try {
+//            System.out.println("🌍 Fetching countries from: " + countriesUrl);
+//            ResponseEntity<List> resp = restTemplate.getForEntity(countriesUrl, List.class);
+//            System.out.println("✅ Countries API status: " + resp.getStatusCode());
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Countries API returned no data");
+//            }
+//            return (List<Map<String,Object>>) resp.getBody();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            throw new ExternalApiException("Could not fetch data from Countries API: " + e.getMessage());
+//        }
+//    }
+private List<Map<String,Object>> fetchCountries() {
+    try {
+        System.out.println("Fetching countries from external API...");
+        ResponseEntity<List<Map<String,Object>>> response = restTemplate.exchange(
+                countriesUrl,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        System.out.println("Countries API response: " + response.getStatusCode());
+        return response.getBody();
+    } catch (Exception e) {
+        e.printStackTrace();
+        throw new RuntimeException("Failed to fetch countries: " + e.getMessage());
     }
+}
+
+//    private Map<String, Double> fetchRates() {
+//        try {
+//            System.out.println("💱 Fetching exchange rates from: " + ratesUrl);
+//            ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
+//            System.out.println("✅ Rates API status: " + resp.getStatusCode());
+//            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+//                throw new ExternalApiException("Rates API returned no data");
+//            }
+//            Map body = resp.getBody();
+//            Object ratesObj = body.get("rates");
+//            if (!(ratesObj instanceof Map)) throw new ExternalApiException("Rates object missing");
+//            Map<String, Object> ratesMap = (Map<String, Object>) ratesObj;
+//            return ratesMap.entrySet()
+//                    .stream()
+//                    .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            throw new ExternalApiException("Could not fetch data from Exchange Rates API: " + e.getMessage());
+//        }
+//    }
 
     private Map<String, Double> fetchRates() {
         try {
-            System.out.println("💱 Fetching exchange rates from: " + ratesUrl);
-            ResponseEntity<Map> resp = restTemplate.getForEntity(ratesUrl, Map.class);
-            System.out.println("✅ Rates API status: " + resp.getStatusCode());
-            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
-                throw new ExternalApiException("Rates API returned no data");
-            }
-            Map body = resp.getBody();
-            Object ratesObj = body.get("rates");
-            if (!(ratesObj instanceof Map)) throw new ExternalApiException("Rates object missing");
-            Map<String, Object> ratesMap = (Map<String, Object>) ratesObj;
-            return ratesMap.entrySet()
-                    .stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> ((Number) e.getValue()).doubleValue()));
+            System.out.println("Fetching rates from external API...");
+            ResponseEntity<Map<String,Object>> response = restTemplate.exchange(
+                    ratesUrl,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {}
+            );
+            Map<String,Object> body = response.getBody();
+            System.out.println("Rates API response: " + response.getStatusCode());
+            if (body == null || !body.containsKey("rates")) return Map.of();
+            Map<String, Double> rates = new HashMap<>();
+            ((Map<?, ?>) body.get("rates")).forEach((k, v) -> {
+                if (v instanceof Number) rates.put(k.toString(), ((Number) v).doubleValue());
+            });
+            return rates;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new ExternalApiException("Could not fetch data from Exchange Rates API: " + e.getMessage());
+            throw new RuntimeException("Failed to fetch rates: " + e.getMessage());
         }
     }
 

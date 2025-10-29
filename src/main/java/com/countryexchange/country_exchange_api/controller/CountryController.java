@@ -115,4 +115,9 @@ public class CountryController {
                 .max(Comparator.naturalOrder()).orElse(null);
         return ResponseEntity.ok(Map.of("total_countries", total, "last_refreshed_at", last == null ? null : last.toString()));
     }
+
+    @GetMapping("/version")
+    public String version() {
+        return "Deployed commit: v2.0.1";
+    }
 }
